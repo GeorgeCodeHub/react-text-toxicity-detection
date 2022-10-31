@@ -9,11 +9,11 @@ function App() {
 
 	return (
 		<div>
-			<p>Simple Input example</p>
+			{/* <p>Simple Input example</p> */}
 			<ToxicityRecognizer>
-				<input autoFocus type="text" autoComplete="off" className="live-search-field" placeholder="Search here..." />
+				<input autoFocus type="text" autoComplete="off" className="live-search-field" placeholder="Type here..." />
 			</ToxicityRecognizer>
-			<p>Nested Input example with custom message</p>
+			{/* <p>Nested Input example with custom message</p>
 			<ToxicityRecognizer
 				position="top-left"
 				showMessage={true}
@@ -32,7 +32,7 @@ function App() {
 						<input type="text" autoComplete="off" className="live-search-field" placeholder="Search here..." />
 					</div>
 				</div>
-			</ToxicityRecognizer>
+			</ToxicityRecognizer> */}
 		</div>
 	);
 }

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 
 import * as toxicity from "@tensorflow-models/toxicity";
 
+import Toast from "./Toast";
 import "./Toast.css";
 
 import "./Toxicity.css";
@@ -9,34 +10,53 @@ import "./Toxicity.css";
 ToxicityRecognizer.defaultProps = {
 	children: <></>,
 	position: "bottom-right",
+	delay: 1000,
+	messageDisplayTime: 50000,
+	toxicityThreshold: 0.8,
 	showMessage: true,
 	showColorError: true,
-	showLoadingIcon: true
+	showLoadingIcon: true,
+	customTitle: null,
+	customMessage: null,
+	onTextValidate: () => {}
 };
 
 function ToxicityRecognizer({
 	children,
 	position,
+	delay,
+	messageDisplayTime,
+	toxicityThreshold,
 	showMessage,
 	showColorError,
 	showLoadingIcon,
+	customTitle,
 	customMessage,
 	onTextValidate
 }: {
 	children: JSX.Element;
 	position: string;
+	delay: number;
+	messageDisplayTime: number;
+	toxicityThreshold: number;
 	showMessage: boolean;
 	showColorError: boolean;
 	showLoadingIcon: boolean;
+	customTitle?: null | JSX.Element;
 	customMessage?: null | JSX.Element;
 	onTextValidate?: (predictions: any) => void;
 }) {
 	const [isLoading, setIsLoading] = useState(false);
 	const [toastVisible, setToastVisible] = useState(false);
 
-	const [toxicityIndicators, setToxicityIndicators] = useState<{ indicators: string[]; toxicityTitle: string }>({
+	const [toxicityIndicators, setToxicityIndicators] = useState<{
+		indicators: string[];
+		toxicityTitle: string | JSX.Element;
+		toxicityMessage: string | JSX.Element;
+	}>({
 		indicators: [],
-		toxicityTitle: ""
+		toxicityTitle: "",
+		toxicityMessage: ""
 	});
 
 	const inputRef = useRef<any>();
@@ -46,7 +66,7 @@ function ToxicityRecognizer({
 	};
 
 	useEffect(() => {
-		let timer: NodeJS.Timeout | null = null;
+		let timer: any | null = null;
 
 		let inputElement = inputRef.current;
 
@@ -60,9 +80,10 @@ function ToxicityRecognizer({
 			if (timer) clearTimeout(timer);
 
 			timer = setTimeout(() => {
-				toxicity.load(0.8, []).then((model) => {
+				toxicity.load(toxicityThreshold, []).then((model) => {
 					const sentences = [inputElement.value];
 
+					showMessage && setToastVisible(false);
 					showLoadingIcon && setIsLoading(true);
 
 					model.classify(sentences).then((predictions) => {
@@ -79,7 +100,9 @@ function ToxicityRecognizer({
 							.filter((item) => item.results[0].match === true)
 							.map((item) => item.label.replace("_", " "));
 
-						if (indicators) {
+						showLoadingIcon && setIsLoading(false);
+
+						if (indicators.length) {
 							let toxicityTitle = "Not Toxic";
 
 							switch (indicators.length) {
@@ -96,18 +119,27 @@ function ToxicityRecognizer({
 								default:
 									break;
 							}
-							showLoadingIcon && setIsLoading(false);
+
+							setToxicityIndicators({
+								indicators: indicators,
+								toxicityTitle: customTitle || toxicityTitle,
+								toxicityMessage: customMessage
+									? customMessage
+									: `Your text holds ${indicators.join(", ").replace(/, ([^,]*)$/, " and $1")} content.`
+							});
+
 							showMessage && setToastVisible(true);
-							setToxicityIndicators({ indicators: indicators, toxicityTitle: toxicityTitle });
 
 							showMessage &&
 								setTimeout(() => {
 									setToastVisible(false);
-								}, 5000);
+								}, messageDisplayTime);
+						} else {
+							setToxicityIndicators((state) => ({ ...state, toxicityTitle: "" }));
 						}
 					});
 				});
-			}, 500);
+			}, delay);
 		};
 
 		// Set listener and start timeout
@@ -117,7 +149,7 @@ function ToxicityRecognizer({
 			// Remove listener when unmounting
 			inputElement?.removeEventListener("keyup", checkTextInput);
 		};
-	}, []);
+	}, [toxicityThreshold, customTitle, customMessage, messageDisplayTime, delay]);
 
 	return (
 		<>
@@ -127,22 +159,26 @@ function ToxicityRecognizer({
 					style: { borderColor: showColorError && toxicityIndicators.toxicityTitle ? "#ff2121" : "initial" }
 				})
 			)}
+			<Toast
+				position={position}
+				isLoading={isLoading}
+				toastVisible={toastVisible}
+				onToastClose={onToastClose}
+				title={toxicityIndicators.toxicityTitle}
+				message={`Your text holds ${toxicityIndicators.indicators
+					.join(", ")
+					.replace(/, ([^,]*)$/, " and $1")} content.`}
+			/>
 
 			<div className={`notification-container ${position}`}>
 				{isLoading && <div className="toxicity-loader"></div>}
 				{toastVisible && (
 					<div className={`notification toast ${position}`}>
 						<button onClick={onToastClose}>X</button>
-						{customMessage ? (
-							customMessage
-						) : (
-							<div>
-								<p className="notification-title">{toxicityIndicators.toxicityTitle}</p>
-								<p className="notification-message">
-									Your text holds {toxicityIndicators.indicators.join(", ").replace(/, ([^,]*)$/, " and $1")} content.
-								</p>
-							</div>
-						)}
+						<div>
+							<p className="notification-title">{toxicityIndicators.toxicityTitle}</p>
+							<p className="notification-message">{toxicityIndicators.toxicityMessage}</p>
+						</div>
 					</div>
 				)}
 			</div>
